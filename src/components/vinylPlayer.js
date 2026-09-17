@@ -23,12 +23,9 @@ export class VinylPlayer {
     this.targetSpinSpeed = 0;
 
     // Âm thanh: Bài hát "Cho Em - MAYDAYs" theo yêu cầu của bạn Vinh
-    this.audioSfxTonearm = new Audio('/audio/tonearm.mp3');
-    this.audioSfxStylus = new Audio('/audio/stylus.mp3');
-    this.audioSfxMotor = new Audio('/audio/motor.mp3');
     this.musicTrack = new Audio('/audio/cho_em_maydays.mp3');
     this.musicTrack.loop = true;
-    this.musicTrack.volume = 0.75;
+    this.musicTrack.volume = 0.8;
     this.musicTrack.preload = 'auto';
 
     if (this.loadingManager) {
@@ -347,33 +344,26 @@ export class VinylPlayer {
     this.isPlaying = true;
     this.targetSpinSpeed = 0.045;
 
-    // 1. Tiếng động cơ khởi động
+    // Phát nhạc ngay lập tức trong event click để trình duyệt không chặn Autoplay
     try {
-      this.audioSfxMotor.currentTime = 0;
-      this.audioSfxMotor.play().catch(() => {});
-    } catch (e) {}
+      const playPromise = this.musicTrack.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Lỗi phát nhạc hộp nhạc:', err);
+        });
+      }
+    } catch (e) {
+      console.warn('Không thể phát nhạc:', e);
+    }
 
-    // 2. Cần kim từ từ xoay và hạ xuống rãnh đĩa
+    // Cần kim mượt mà xoay và hạ vào rãnh đĩa
     if (this.armGroup) {
+      gsap.killTweensOf(this.armGroup.rotation);
       gsap.to(this.armGroup.rotation, {
         y: this.armPlayAngle,
-        duration: 1.6,
-        ease: 'power2.inOut',
-        onComplete: () => {
-          try {
-            this.audioSfxStylus.currentTime = 0;
-            this.audioSfxStylus.play().catch(() => {});
-          } catch (e) {}
-
-          setTimeout(() => {
-            if (this.isPlaying) {
-              this.musicTrack.play().catch(() => {});
-            }
-          }, 300);
-        }
+        duration: 1.2,
+        ease: 'power2.out'
       });
-    } else {
-      this.musicTrack.play().catch(() => {});
     }
 
     if (this.onStateChange) {
@@ -386,13 +376,16 @@ export class VinylPlayer {
     this.isPlaying = false;
     this.targetSpinSpeed = 0;
 
-    this.musicTrack.pause();
+    try {
+      this.musicTrack.pause();
+    } catch (e) {}
 
     // Nhấc cần kim về vị trí nghỉ
     if (this.armGroup) {
+      gsap.killTweensOf(this.armGroup.rotation);
       gsap.to(this.armGroup.rotation, {
         y: this.armRestAngle,
-        duration: 1.4,
+        duration: 1.2,
         ease: 'power2.out'
       });
     }

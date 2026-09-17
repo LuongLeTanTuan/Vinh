@@ -93,6 +93,127 @@ export class ModalManager {
         if (e.key === 'ArrowRight') this.nextPhoto();
       }
     });
+
+    // Khởi tạo cử chỉ vuốt qua lại (Touch swipe & Pointer drag)
+    this.initSwipeGestures();
+  }
+
+  /**
+   * Cử chỉ vuốt qua lại để lướt xem ảnh (hỗ trợ màn hình cảm ứng & kéo chuột)
+   */
+  initSwipeGestures() {
+    if (!this.photoModal) return;
+
+    const swipeCard = this.photoModal.querySelector('.photo-modal-card') || this.photoModal;
+    const imgEl = this.photoModalImg;
+
+    let startX = 0;
+    let startY = 0;
+    let currentDeltaX = 0;
+    let isTracking = false;
+    let isSwiping = false;
+
+    const onStart = (clientX, clientY, target) => {
+      if (!this.photoModal.classList.contains('active')) return false;
+      // Không can thiệp nếu click trực tiếp vào nút đóng hoặc 2 nút điều hướng mũi tên
+      if (target.closest('.modal-close-btn') || target.closest('.nav-arrow-btn')) {
+        return false;
+      }
+      startX = clientX;
+      startY = clientY;
+      currentDeltaX = 0;
+      isTracking = true;
+      isSwiping = false;
+      return true;
+    };
+
+    const onMove = (clientX, clientY) => {
+      if (!isTracking) return;
+      const deltaX = clientX - startX;
+      const deltaY = clientY - startY;
+
+      // Nhận diện cử chỉ vuốt ngang khi deltaX lớn hơn deltaY
+      if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY) * 0.8) {
+        isSwiping = true;
+        currentDeltaX = deltaX;
+
+        if (imgEl) {
+          imgEl.style.transition = 'none';
+          const resistanceFactor = 0.55;
+          const scaleDamp = 1 - Math.min(0.06, Math.abs(deltaX) / 800);
+          imgEl.style.transform = `translateX(${deltaX * resistanceFactor}px) scale(${scaleDamp})`;
+          imgEl.style.opacity = `${Math.max(0.65, 1 - Math.abs(deltaX) / 650)}`;
+        }
+      }
+    };
+
+    const onEnd = () => {
+      if (!isTracking) return;
+      isTracking = false;
+
+      // Ngưỡng vuốt tối thiểu 38px để kích hoạt chuyển ảnh
+      if (isSwiping && Math.abs(currentDeltaX) >= 38) {
+        if (currentDeltaX < 0) {
+          this.nextPhoto();
+        } else {
+          this.prevPhoto();
+        }
+      } else if (imgEl) {
+        // Trở về vị trí ban đầu nếu lực vuốt không đủ
+        imgEl.style.transition = 'transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.28s ease';
+        imgEl.style.transform = 'translateX(0) scale(1)';
+        imgEl.style.opacity = '1';
+      }
+
+      isSwiping = false;
+      currentDeltaX = 0;
+    };
+
+    // 1. Lắng nghe cử chỉ cảm ứng trên điện thoại & máy tính bảng
+    swipeCard.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        onStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+      }
+    }, { passive: true });
+
+    swipeCard.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && isTracking) {
+        onMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    swipeCard.addEventListener('touchend', () => {
+      onEnd();
+    }, { passive: true });
+
+    swipeCard.addEventListener('touchcancel', () => {
+      onEnd();
+    }, { passive: true });
+
+    // 2. Lắng nghe kéo thả chuột trên máy tính (Pointer Events)
+    let pointerDown = false;
+    swipeCard.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (onStart(e.clientX, e.clientY, e.target)) {
+        pointerDown = true;
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (pointerDown) {
+        onMove(e.clientX, e.clientY);
+      }
+    });
+
+    const endPointer = () => {
+      if (pointerDown) {
+        pointerDown = false;
+        onEnd();
+      }
+    };
+
+    window.addEventListener('pointerup', endPointer);
+    window.addEventListener('pointercancel', endPointer);
   }
 
   setupLetterContent() {
@@ -115,15 +236,37 @@ export class ModalManager {
 
   /**
    * Mở Modal ảnh kỷ niệm dạng Lightbox tối giản, không chữ chú thích
+   * Hỗ trợ hướng chuyển ảnh (direction: 1 = next, -1 = prev, 0 = open)
    */
-  openPhotoModal(index) {
+  openPhotoModal(index, direction = 0) {
     this.currentPhotoIndex = index;
     const memory = this.memories[index];
     if (!memory) return;
 
     if (this.photoModalImg) {
+      this.photoModalImg.style.transition = 'none';
+
+      // Tạo hiệu ứng trượt nhẹ từ hướng tương ứng
+      if (direction === 1) {
+        this.photoModalImg.style.transform = 'translateX(28px) scale(0.96)';
+        this.photoModalImg.style.opacity = '0.4';
+      } else if (direction === -1) {
+        this.photoModalImg.style.transform = 'translateX(-28px) scale(0.96)';
+        this.photoModalImg.style.opacity = '0.4';
+      } else {
+        this.photoModalImg.style.transform = 'scale(0.95)';
+        this.photoModalImg.style.opacity = '0.7';
+      }
+
       this.photoModalImg.src = memory.image;
+
+      requestAnimationFrame(() => {
+        this.photoModalImg.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
+        this.photoModalImg.style.transform = 'translateX(0) scale(1)';
+        this.photoModalImg.style.opacity = '1';
+      });
     }
+
     if (this.photoCounter) {
       this.photoCounter.textContent = `${index + 1} / ${this.memories.length}`;
     }
@@ -139,18 +282,22 @@ export class ModalManager {
     if (this.photoModal) {
       this.photoModal.classList.remove('active');
     }
+    if (this.photoModalImg) {
+      this.photoModalImg.style.transform = '';
+      this.photoModalImg.style.opacity = '';
+    }
     if (this.onModalClose) this.onModalClose();
   }
 
   prevPhoto() {
     let newIndex = this.currentPhotoIndex - 1;
     if (newIndex < 0) newIndex = this.memories.length - 1;
-    this.openPhotoModal(newIndex);
+    this.openPhotoModal(newIndex, -1);
   }
 
   nextPhoto() {
     let newIndex = (this.currentPhotoIndex + 1) % this.memories.length;
-    this.openPhotoModal(newIndex);
+    this.openPhotoModal(newIndex, 1);
   }
 
   openLetterModal() {

@@ -390,6 +390,9 @@ body.cursor-hidden .modal-backdrop.active * {
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .photo-image-wrapper.clean-image-wrapper img {
@@ -399,7 +402,14 @@ body.cursor-hidden .modal-backdrop.active * {
   border-radius: 14px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(212, 175, 55, 0.2);
   border: 1.5px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.25s ease;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+  will-change: transform, opacity;
+}
+
+.photo-image-wrapper.clean-image-wrapper img:active {
+  cursor: grabbing;
 }
 
 .nav-arrow-btn {
@@ -620,5 +630,18 @@ body.cursor-hidden .modal-backdrop.active * {
   .typewriter-box {
     min-height: 100px;
     padding: 14px;
+  }
+  .photo-modal-body.clean-body {
+    gap: 8px;
+    width: 100%;
+  }
+  .nav-arrow-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  .photo-image-wrapper.clean-image-wrapper img {
+    max-width: 78vw;
+    max-height: 76vh;
   }
 }

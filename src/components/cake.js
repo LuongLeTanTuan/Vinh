@@ -23,6 +23,11 @@ export class BirthdayCake {
     // Chiều cao mặt khăn trải bàn
     this.tableHeight = 0.78;
 
+    // Âm thanh sinh nhật: chỉ khởi tạo 1 instance duy nhất để không bị phát đè âm thanh
+    this.bdayAudio = new Audio('/audio/birthday_song.mp3');
+    this.bdayAudio.volume = 0.8;
+    this.bdayAudio.preload = 'auto';
+
     // Vùng va chạm tương tác bao trọn bánh kem, nến và đĩa đỡ
     const hitBoxGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.45, 16);
     const hitBoxMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -365,11 +370,19 @@ export class BirthdayCake {
 
     this.triggerConfetti();
 
+    // Phát nhạc chúc mừng sinh nhật: chỉ phát 1 luồng âm thanh duy nhất, không đè lặp
     try {
-      const bdayAudio = new Audio('/audio/birthday_song.mp3');
-      bdayAudio.volume = 0.8;
-      bdayAudio.play().catch(() => {});
-    } catch (e) {}
+      if (this.bdayAudio) {
+        this.bdayAudio.pause();
+        this.bdayAudio.currentTime = 0;
+        const playPromise = this.bdayAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => console.warn('Lỗi phát nhạc sinh nhật:', err));
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi âm thanh sinh nhật:', e);
+    }
 
     if (this.onCandleBlown) {
       this.onCandleBlown();
@@ -380,6 +393,18 @@ export class BirthdayCake {
     this.isBlownOut = false;
     this.flameSprites.forEach(s => s.visible = true);
     this.flameLights.forEach(l => l.intensity = 2.4);
+
+    // Khi thắp sáng lại nến, dừng nhạc sinh nhật nếu đang phát
+    this.stopAudio();
+  }
+
+  stopAudio() {
+    try {
+      if (this.bdayAudio) {
+        this.bdayAudio.pause();
+        this.bdayAudio.currentTime = 0;
+      }
+    } catch (e) {}
   }
 
   triggerConfetti() {

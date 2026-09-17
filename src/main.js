@@ -177,11 +177,18 @@ class BirthdayApp {
 
     // 4. Bánh kem sinh nhật (thổi nến + pháo hoa)
     this.cake = new BirthdayCake(this.scene, () => {
+      if (this.vinylPlayer && this.vinylPlayer.isPlaying) {
+        this.vinylPlayer.stop();
+      }
       this.modals.showCelebrationBanner();
     }, this.loadingManager);
 
     // 5. Hộp nhạc / Máy đĩa than cổ điển (Chỉ bật tắt trực tiếp tại hộp nhạc)
-    this.vinylPlayer = new VinylPlayer(this.scene, null, this.loadingManager);
+    this.vinylPlayer = new VinylPlayer(this.scene, (isPlaying) => {
+      if (isPlaying && this.cake) {
+        this.cake.stopAudio();
+      }
+    }, this.loadingManager);
 
     // 6. Hệ thống 16 khung tranh kỷ niệm quanh phòng
     this.gallery = new PhotoGallery(this.scene, BIRTHDAY_CONFIG.memories, (photoIndex) => {
