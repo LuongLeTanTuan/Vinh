@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090a10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Happy BirthDay Kieu</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎂</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/style.css">
+</head>
+<body>
+
+  <!-- 3D Canvas Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Interactive Reticle (Tâm ngắm tối giản) -->
+  <div id="interaction-reticle" class="interaction-reticle"></div>
+  <div id="interaction-hint-badge" class="interaction-hint-badge"></div>
+
+  <!-- Celebration Banner (After blowing candle) -->
+  <div id="celebration-banner" class="celebration-banner">
+    <h2>CHÚC MỪNG SINH NHẬT KIỀU!</h2>
+    <p>Mong tuổi mới thật dịu dàng với bà, chặng đường phía trước rộng mở và luôn ngập tràn niềm vui!</p>
+  </div>
+
+  <!-- Photo Lightbox Modal (Clean View - No Captions) -->
+  <div id="photo-modal" class="modal-backdrop">
+    <div class="photo-modal-card clean-lightbox">
+      <button id="photo-modal-close" class="modal-close-btn" aria-label="Đóng">✕</button>
+      <div class="photo-modal-body clean-body">
+        <button id="photo-btn-prev" class="nav-arrow-btn nav-arrow-prev" aria-label="Trước">❮</button>
+        <div class="photo-image-wrapper clean-image-wrapper">
+          <img id="photo-modal-img" src="" alt="Ảnh kỷ niệm">
+        </div>
+        <button id="photo-btn-next" class="nav-arrow-btn nav-arrow-next" aria-label="Tiếp">❯</button>
+      </div>
+      <div class="photo-counter-badge">
+        <span id="photo-counter" class="photo-counter">1 / 16</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vintage Friendship Letter Modal -->
+  <div id="letter-modal" class="modal-backdrop">
+    <div class="letter-modal-card">
+      <div id="letter-wax-stamp" class="letter-wax-stamp" role="button" tabindex="0" title="Bấm vào dấu niêm đỏ để gấp thư" aria-label="Gấp thư"></div>
+      <h2 id="letter-title" class="letter-title">Kiều à,</h2>
+      <div id="letter-body" class="letter-body">
+        <!-- Paragraphs injected via JS -->
+      </div>
+      <div class="letter-sign-section">
+        <div id="letter-sign" class="letter-sign">Vinh</div>
+        <div id="letter-date" class="letter-date" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Birthday Invitation & Progress Loading Screen -->
+  <div id="loading-screen">
+    <div class="invitation-backdrop-glow"></div>
+    <div class="invitation-card-container">
+      <div class="invitation-card">
+        <!-- Invitation Card Image -->
+        <div class="invitation-image-wrapper">
+          <img src="/images/invitation_card.jpg" alt="Thiệp Mời Sinh Nhật Kiều" class="invitation-card-img">
+        </div>
+
+        <!-- Refined Progress Bar -->
+        <div class="invitation-progress-box">
+          <div class="progress-bar-track">
+            <div id="loading-progress-bar" class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-meta-row">
+            <span id="loading-status-text" class="status-label">Đang chuẩn bị không gian sinh nhật...</span>
+            <span id="loading-percent" class="status-percent">0%</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
