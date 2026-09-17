@@ -14,10 +14,11 @@ import { normalizeModel } from '../utils/modelHelper.js';
  * 8. Bộ đĩa sứ viền vàng, khăn ăn gấp hoa hồng, cánh hoa rải rác
  */
 export class TableItems {
-  constructor(scene, onLetterClick, loadingManager = null) {
+  constructor(scene, onLetterClick, loadingManager = null, quality = {}) {
     this.scene = scene;
     this.onLetterClick = onLetterClick;
     this.loadingManager = loadingManager;
+    this.quality = quality;
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
@@ -44,6 +45,16 @@ export class TableItems {
     this.createTeaLightCandles();
     this.createLuxuryBalloonBouquets();
     this.loadTableDecorations();
+    this.applyQualityHints();
+  }
+
+  applyQualityHints() {
+    if (this.quality.decorShadows !== false) return;
+    this.group.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = false;
+      }
+    });
   }
 
   createBanquetTableWithCloth() {
@@ -1031,7 +1042,7 @@ export class TableItems {
       const rawChair = gltf.scene;
       rawChair.traverse((c) => {
         if (c.isMesh) {
-          c.castShadow = true;
+          c.castShadow = this.quality.modelShadows !== false;
           c.receiveShadow = true;
         }
       });
@@ -1198,7 +1209,7 @@ export class TableItems {
       bGeo.scale(1.0, 1.25, 1.0);
       const bMat = balloonMaterials[matIdx % balloonMaterials.length];
       const bMesh = new THREE.Mesh(bGeo, bMat);
-      bMesh.castShadow = true;
+      bMesh.castShadow = this.quality.decorShadows !== false;
       bGroup.add(bMesh);
 
       // Nút thắt bóng bay hình nón
@@ -1216,7 +1227,7 @@ export class TableItems {
         new THREE.Vector3(-0.03, -0.8 * scale, -0.02),
         new THREE.Vector3(0.02, -ribbonLen, 0)
       );
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(24));
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(this.quality.balloonCurvePoints || 24));
       const line = new THREE.Line(lineGeo, stringMat);
       bGroup.add(line);
 

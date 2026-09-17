@@ -54,6 +54,7 @@ export class CameraControls {
 
     // Callback khi trạng thái pointer lock thay đổi
     this.onPointerLockChange = null;
+    this.targetPosition = new THREE.Vector3();
 
     this.initEvents();
   }
@@ -344,7 +345,7 @@ export class CameraControls {
     const phi = THREE.MathUtils.degToRad(90 - finalLat);
     const theta = THREE.MathUtils.degToRad(finalLon);
 
-    const targetPosition = new THREE.Vector3();
+    const targetPosition = this.targetPosition;
     targetPosition.x = this.sittingPosition.x + 500 * Math.sin(phi) * Math.sin(theta);
     targetPosition.y = this.sittingPosition.y + 500 * Math.cos(phi);
     targetPosition.z = this.sittingPosition.z - 500 * Math.sin(phi) * Math.cos(theta);

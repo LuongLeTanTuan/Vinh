@@ -8,11 +8,18 @@ import { VinylPlayer } from './components/vinylPlayer.js';
 import { PhotoGallery } from './components/photoGallery.js';
 import { ModalManager } from './ui/modal.js';
 import { BIRTHDAY_CONFIG } from './config.js';
+import { createQualityProfile } from './performance.js';
 
 class BirthdayApp {
   constructor() {
     this.container = document.getElementById('canvas-container');
     this.clock = new THREE.Clock();
+    this.quality = createQualityProfile();
+    window.__BIRTHDAY_QUALITY__ = this.quality;
+    this.currentPixelRatio = 1;
+    this.frameSampleTime = 0;
+    this.frameSampleCount = 0;
+    this.lastQualityCheckTime = 0;
 
     // Raycaster chuẩn tâm ngắm FPS (Crosshair Center Aim)
     this.raycaster = new THREE.Raycaster();
@@ -69,15 +76,19 @@ class BirthdayApp {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     // Độ phân giải sắc nét chuẩn Retina trên iPhone/Android (1.65), khử sạch hiện tượng răng cưa
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.65 : 1.75));
+    this.setRendererPixelRatio(this.getTargetPixelRatio());
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.enabled = this.quality.shadows;
+    if (this.quality.shadows) {
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.autoUpdate = true;
+      this.renderer.shadowMap.needsUpdate = true;
+    }
 
     // Trên điện thoại: chỉ tính toán bóng đổ 1 lần duy nhất (bake), tắt auto-update để giữ cứng 60-90 FPS
-    if (isMobile) {
+    if (isMobile && this.quality.shadows) {
       this.renderer.shadowMap.autoUpdate = true; // Bật để render tính toán bóng đổ trong màn hình loading
       this.renderer.shadowMap.needsUpdate = true;
     }
@@ -94,6 +105,44 @@ class BirthdayApp {
     this.container.appendChild(this.renderer.domElement);
 
     this.controls = new CameraControls(this.camera, this.renderer.domElement);
+  }
+
+  getTargetPixelRatio() {
+    return Math.min(window.devicePixelRatio || 1, this.quality.pixelRatioMax);
+  }
+
+  setRendererPixelRatio(pixelRatio) {
+    const nextRatio = Math.max(
+      this.quality.pixelRatioMin,
+      Math.min(pixelRatio, this.quality.pixelRatioMax)
+    );
+    if (Math.abs(nextRatio - this.currentPixelRatio) < 0.01) return;
+    this.currentPixelRatio = nextRatio;
+    this.renderer.setPixelRatio(nextRatio);
+  }
+
+  updateAdaptiveResolution(delta, elapsedTime) {
+    this.frameSampleTime += delta;
+    this.frameSampleCount += 1;
+
+    if (elapsedTime - this.lastQualityCheckTime < 1.5 || this.frameSampleCount < 20) return;
+
+    const avgFrameMs = (this.frameSampleTime / this.frameSampleCount) * 1000;
+    this.frameSampleTime = 0;
+    this.frameSampleCount = 0;
+    this.lastQualityCheckTime = elapsedTime;
+
+    let nextRatio = this.currentPixelRatio;
+    if (avgFrameMs > 24 && this.currentPixelRatio > this.quality.pixelRatioMin) {
+      nextRatio = this.currentPixelRatio - 0.15;
+    } else if (avgFrameMs < 14 && this.currentPixelRatio < this.getTargetPixelRatio()) {
+      nextRatio = this.currentPixelRatio + 0.05;
+    }
+
+    if (Math.abs(nextRatio - this.currentPixelRatio) >= 0.04) {
+      this.setRendererPixelRatio(nextRatio);
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
   }
 
   setupLoadingManager() {
@@ -117,12 +166,12 @@ class BirthdayApp {
       try {
         if (this.renderer && this.scene && this.camera) {
           this.renderer.compile(this.scene, this.camera);
-          if (this.isMobile) {
+          if (this.quality.shadows) {
             this.renderer.shadowMap.needsUpdate = true;
           }
           this.renderer.render(this.scene, this.camera);
           this.renderer.render(this.scene, this.camera);
-          if (this.isMobile) {
+          if (this.quality.shadows) {
             this.renderer.shadowMap.autoUpdate = false;
           }
         }
@@ -145,7 +194,7 @@ class BirthdayApp {
           if (this.renderer && this.scene && this.camera) {
             this.renderer.compile(this.scene, this.camera);
             this.renderer.render(this.scene, this.camera);
-            if (this.isMobile) this.renderer.shadowMap.autoUpdate = false;
+            if (this.quality.shadows) this.renderer.shadowMap.autoUpdate = false;
           }
         } catch (e) {}
       }
@@ -163,17 +212,17 @@ class BirthdayApp {
     };
 
     // 1. Bầu trời sao trên đầu & sao băng (dùng texture thật)
-    this.sky = new SkyScene(this.scene, this.loadingManager);
+    this.sky = new SkyScene(this.scene, this.loadingManager, this.quality);
 
     // 2. Phòng tiệc có mái vòm kính giếng trời ngắm sao & đèn đom đóm
-    this.room = new RoomScene(this.scene, this.loadingManager);
+    this.room = new RoomScene(this.scene, this.loadingManager, this.quality);
 
     // 3. Bàn tiệc có khăn trải bàn, đĩa, dao nĩa, cánh hoa hồng, lá thư tay
     this.tableItems = new TableItems(this.scene, () => {
       this.controls.exitLock();
       this.showCursor();
       this.modals.openLetterModal();
-    }, this.loadingManager);
+    }, this.loadingManager, this.quality);
 
     // 4. Bánh kem sinh nhật (thổi nến + pháo hoa)
     this.cake = new BirthdayCake(this.scene, () => {
@@ -181,21 +230,21 @@ class BirthdayApp {
         this.vinylPlayer.stop();
       }
       this.modals.showCelebrationBanner();
-    }, this.loadingManager);
+    }, this.loadingManager, this.quality);
 
     // 5. Hộp nhạc / Máy đĩa than cổ điển (Chỉ bật tắt trực tiếp tại hộp nhạc)
     this.vinylPlayer = new VinylPlayer(this.scene, (isPlaying) => {
       if (isPlaying && this.cake) {
         this.cake.stopAudio();
       }
-    }, this.loadingManager);
+    }, this.loadingManager, this.quality);
 
     // 6. Hệ thống 16 khung tranh kỷ niệm quanh phòng
     this.gallery = new PhotoGallery(this.scene, BIRTHDAY_CONFIG.memories, (photoIndex) => {
       this.controls.exitLock();
       this.showCursor();
       this.modals.openPhotoModal(photoIndex);
-    }, this.loadingManager);
+    }, this.loadingManager, this.quality);
   }
 
   /**
@@ -499,11 +548,17 @@ class BirthdayApp {
   onWindowResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
+    this.setRendererPixelRatio(Math.min(this.currentPixelRatio, this.getTargetPixelRatio()));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
   animate() {
     requestAnimationFrame(this.animate.bind(this));
+
+    if (document.hidden) {
+      this.clock.getDelta();
+      return;
+    }
 
     const delta = Math.min(this.clock.getDelta(), 0.05);
     const elapsedTime = this.clock.getElapsedTime();
@@ -540,6 +595,7 @@ class BirthdayApp {
 
     // 4. Render khung hình
     this.renderer.render(this.scene, this.camera);
+    this.updateAdaptiveResolution(delta, elapsedTime);
   }
 }
 

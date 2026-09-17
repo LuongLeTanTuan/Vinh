@@ -8,9 +8,10 @@ import * as THREE from 'three';
  * - Hiệu ứng nebula tinh vân mờ ảo
  */
 export class SkyScene {
-  constructor(scene, loadingManager = null) {
+  constructor(scene, loadingManager = null, quality = {}) {
     this.scene = scene;
     this.loadingManager = loadingManager;
+    this.quality = quality;
     this.stars = null;
     this.sparkleStars = null;
     this.moon = null;
@@ -18,6 +19,8 @@ export class SkyScene {
     this.time = 0;
     this.shootingStarActive = false;
     this.nextShootingStarTime = 5;
+    this.currentHead = new THREE.Vector3();
+    this.currentTail = new THREE.Vector3();
 
     this.createStarfieldSphere();
     this.createDiamondSparkleStars();
@@ -31,7 +34,11 @@ export class SkyScene {
    * Tạo hiệu ứng thị giác chiều sâu 3D vô tận qua cả giếng trời nóc phòng và cửa sổ
    */
   createStarfieldSphere() {
-    const domeGeo = new THREE.SphereGeometry(120, 64, 48);
+    const domeGeo = new THREE.SphereGeometry(
+      120,
+      this.quality.skyDomeWidthSegments || 64,
+      this.quality.skyDomeHeightSegments || 48
+    );
     domeGeo.scale(-1, 1, 1);
 
     // Tải texture bầu trời sao Milky Way độ nét cao
@@ -69,7 +76,11 @@ export class SkyScene {
     fCtx.fillRect(0, 0, 2, 512);
 
     const fadeTex = new THREE.CanvasTexture(fadeCanvas);
-    const fadeSphereGeo = new THREE.SphereGeometry(110, 32, 24);
+    const fadeSphereGeo = new THREE.SphereGeometry(
+      110,
+      this.quality.tier === 'low' ? 20 : 32,
+      this.quality.tier === 'low' ? 16 : 24
+    );
     fadeSphereGeo.scale(-1, 1, 1);
     const fadeMat = new THREE.MeshBasicMaterial({
       map: fadeTex,
@@ -86,7 +97,7 @@ export class SkyScene {
    * Tạo ngàn vì sao lấp lánh bao quát cả trên đầu lẫn ngang tầm mắt ngoài cửa sổ/ban công
    */
   createDiamondSparkleStars() {
-    const starCount = 1800;
+    const starCount = this.quality.starCount || 1800;
     const geo = new THREE.BufferGeometry();
     const positions = new Float32Array(starCount * 3);
     const colors = new Float32Array(starCount * 3);
@@ -180,7 +191,8 @@ export class SkyScene {
     const moonGroup = new THREE.Group();
     moonGroup.position.set(-6, 36, -10); // Đặt vầng trăng ở góc nhìn đẹp xuyên qua giếng trời kính
 
-    const moonGeo = new THREE.SphereGeometry(3.6, 32, 32);
+    const moonSegments = this.quality.tier === 'low' ? 20 : 32;
+    const moonGeo = new THREE.SphereGeometry(3.6, moonSegments, moonSegments);
     
     // Texture mặt trăng chân thực hơn
     const moonCanvas = document.createElement('canvas');
@@ -242,7 +254,7 @@ export class SkyScene {
    * Tinh vân Nebula mềm mại trên bầu trời
    */
   createNebulaClouds() {
-    const nebulaCount = 6;
+    const nebulaCount = this.quality.nebulaCount || 6;
     const colors = [
       [255, 100, 140, 0.08],
       [100, 140, 255, 0.06],
@@ -252,7 +264,7 @@ export class SkyScene {
       [255, 150, 200, 0.06]
     ];
 
-    colors.forEach((col, i) => {
+    colors.slice(0, nebulaCount).forEach((col, i) => {
       const canvas = document.createElement('canvas');
       canvas.width = 256;
       canvas.height = 256;
@@ -350,8 +362,8 @@ export class SkyScene {
           this.shootingStarActive = false;
           this.shootingStar.material.opacity = 0;
         } else {
-          const currentHead = new THREE.Vector3().lerpVectors(this.starStart, this.starEnd, this.starProgress);
-          const currentTail = new THREE.Vector3().lerpVectors(this.starStart, this.starEnd, Math.max(0, this.starProgress - 0.25));
+          const currentHead = this.currentHead.lerpVectors(this.starStart, this.starEnd, this.starProgress);
+          const currentTail = this.currentTail.lerpVectors(this.starStart, this.starEnd, Math.max(0, this.starProgress - 0.25));
           
           const pos = this.shootingStar.geometry.attributes.position.array;
           pos[0] = currentHead.x;

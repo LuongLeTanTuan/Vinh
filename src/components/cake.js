@@ -7,10 +7,11 @@ import { normalizeModel } from '../utils/modelHelper.js';
  * BirthdayCake: Bánh kem sinh nhật lung linh đặt ngay ngắn trên khăn trải bàn tiệc
  */
 export class BirthdayCake {
-  constructor(scene, onCandleBlown, loadingManager = null) {
+  constructor(scene, onCandleBlown, loadingManager = null, quality = {}) {
     this.scene = scene;
     this.onCandleBlown = onCandleBlown;
     this.loadingManager = loadingManager;
+    this.quality = quality;
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
@@ -54,7 +55,7 @@ export class BirthdayCake {
 
         rawCake.traverse((child) => {
           if (child.isMesh) {
-            child.castShadow = true;
+            child.castShadow = this.quality.modelShadows !== false;
             child.receiveShadow = true;
             child.userData = {
               interactive: true,
@@ -73,7 +74,7 @@ export class BirthdayCake {
         });
         const plate = new THREE.Mesh(plateGeo, plateMat);
         plate.position.set(0, this.tableHeight + 0.008, -0.65);
-        plate.receiveShadow = true;
+        plate.receiveShadow = this.quality.shadows !== false;
         plate.userData = {
           interactive: true,
           type: 'cake',
@@ -273,8 +274,8 @@ export class BirthdayCake {
       const candleGeo = new THREE.CylinderGeometry(r * 0.92, r, h, 16);
       const candleMesh = new THREE.Mesh(candleGeo, pos.mat);
       candleMesh.position.set(pos.x, candleBaseY + h / 2, pos.z);
-      candleMesh.castShadow = true;
-      candleMesh.receiveShadow = true;
+      candleMesh.castShadow = this.quality.decorShadows !== false;
+      candleMesh.receiveShadow = this.quality.shadows !== false;
       candleMesh.userData = {
         interactive: true,
         type: 'cake',
@@ -352,7 +353,7 @@ export class BirthdayCake {
     // 6. Ánh nến vàng ấm chân thực lung linh chiếu sáng mặt bánh
     const flameLight = new THREE.PointLight(0xffaa40, 1.8, 2.5, 1.4);
     flameLight.position.set(0, candleBaseY + candleHeight + 0.02, -0.65);
-    flameLight.castShadow = true;
+    flameLight.castShadow = false;
     flameLight.shadow.bias = -0.001;
     this.group.add(flameLight);
     this.flameLights.push(flameLight);

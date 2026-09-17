@@ -10,9 +10,10 @@ import * as THREE from 'three';
  * - Ánh sáng nến vàng lung linh + ánh trăng dịu mát từ giếng trời
  */
 export class RoomScene {
-  constructor(scene, loadingManager = null) {
+  constructor(scene, loadingManager = null, quality = {}) {
     this.scene = scene;
     this.loadingManager = loadingManager;
+    this.quality = quality;
     this.roomWidth = 6.0;
     this.roomLength = 6.0;
     this.roomHeight = 3.6;
@@ -561,9 +562,9 @@ export class RoomScene {
     // 2. Ánh nến vàng ấm lung linh giữa bàn tiệc
     const candleLight = new THREE.PointLight(0xffa743, 3.0, 5.0, 1.3);
     candleLight.position.set(0, 1.15, -0.7);
-    candleLight.castShadow = true;
-    candleLight.shadow.mapSize.width = 512;
-    candleLight.shadow.mapSize.height = 512;
+    candleLight.castShadow = this.quality.shadows !== false;
+    candleLight.shadow.mapSize.width = this.quality.shadowMapSize || 512;
+    candleLight.shadow.mapSize.height = this.quality.shadowMapSize || 512;
     this.scene.add(candleLight);
     this.candleLight = candleLight;
 

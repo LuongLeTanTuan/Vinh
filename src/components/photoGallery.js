@@ -6,11 +6,12 @@ import * as THREE from 'three';
  * - Ảnh treo sát tường với đèn rọi riêng cho từng bức
  */
 export class PhotoGallery {
-  constructor(scene, memories, onPhotoClick, loadingManager = null) {
+  constructor(scene, memories, onPhotoClick, loadingManager = null, quality = {}) {
     this.scene = scene;
     this.memories = memories;
     this.onPhotoClick = onPhotoClick;
     this.loadingManager = loadingManager;
+    this.quality = quality;
 
     this.frames = [];
     this.textureLoader = new THREE.TextureLoader(this.loadingManager);
@@ -83,7 +84,7 @@ export class PhotoGallery {
       const borderThickness = 0.04;
       const outerBorderGeo = new THREE.BoxGeometry(frameWidth, frameHeight, 0.035);
       const outerBorder = new THREE.Mesh(outerBorderGeo, frameBorderMat);
-      outerBorder.castShadow = true;
+      outerBorder.castShadow = this.quality.decorShadows !== false;
       frameGroup.add(outerBorder);
 
       // 2. Viền passepartout trắng bên trong
@@ -135,9 +136,11 @@ export class PhotoGallery {
       frameGroup.add(bulb);
 
       // Ánh sáng rọi tranh vàng dịu
-      const spotLight = new THREE.PointLight(0xffecd2, 0.5, 1.5, 1.8);
-      spotLight.position.set(0, frameHeight / 2 + 0.06, 0.14);
-      frameGroup.add(spotLight);
+      if (this.quality.galleryLights !== false) {
+        const spotLight = new THREE.PointLight(0xffecd2, 0.5, 1.5, 1.8);
+        spotLight.position.set(0, frameHeight / 2 + 0.06, 0.14);
+        frameGroup.add(spotLight);
+      }
 
       this.scene.add(frameGroup);
       this.frames.push({
