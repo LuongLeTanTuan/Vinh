@@ -59,19 +59,26 @@ class BirthdayApp {
       200
     );
 
-    // Renderer tương thích tối đa cho cả PC & Điện thoại
+    // Renderer tương thích tối đa cho cả PC & Điện thoại (Cố định 60-90Hz mượt mà)
     const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: !isMobile, // Tắt antialias trên mobile để đạt 60-90 FPS tối đa
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.75));
+    // Giới hạn pixel ratio trên điện thoại (1.05) tránh tràn bộ nhớ GPU, PC giữ 1.75
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.05 : 1.75));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Trên điện thoại: chỉ tính toán bóng đổ 1 lần duy nhất (bake), tắt auto-update để giữ cứng 60-90 FPS
+    if (isMobile) {
+      this.renderer.shadowMap.autoUpdate = false;
+      this.renderer.shadowMap.needsUpdate = true;
+    }
 
     // Ngăn chặn lỗi mất ngữ cảnh WebGL trên thiết bị di động
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -165,10 +172,13 @@ class BirthdayApp {
       this.controls.requestLock();
     });
 
-    // Hàm kiểm tra va chạm tương tác với toàn bộ mô hình trong phòng
+    // Hàm kiểm tra va chạm tương tác siêu tốc (chỉ quét các vật thể có tương tác)
     const getHitInteractive = (ptr) => {
       this.raycaster.setFromCamera(ptr, this.camera);
-      const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+      const searchTargets = (this.interactiveTargets && this.interactiveTargets.length > 0)
+        ? this.interactiveTargets
+        : this.scene.children;
+      const intersects = this.raycaster.intersectObjects(searchTargets, true);
 
       for (const hit of intersects) {
         let obj = hit.object;
@@ -428,7 +438,7 @@ class BirthdayApp {
   animate() {
     requestAnimationFrame(this.animate.bind(this));
 
-    const delta = this.clock.getDelta();
+    const delta = Math.min(this.clock.getDelta(), 0.05);
     const elapsedTime = this.clock.getElapsedTime();
 
     // Cập nhật thời gian chờ 10s: nếu không có thao tác gì thì kích hoạt mũi tên chỉ chỉ
@@ -456,8 +466,10 @@ class BirthdayApp {
     if (this.tableItems) this.tableItems.update(delta);
     if (this.vinylPlayer) this.vinylPlayer.update(delta);
 
-    // 3. Kiểm tra hover (tối ưu tiết kiệm CPU)
-    this.checkHoverInteractions(elapsedTime);
+    // 3. Kiểm tra hover (chỉ chạy trên PC có chuột, bỏ qua trên di động để tối ưu 60-90 FPS)
+    if (!this.controls.isTouchDevice) {
+      this.checkHoverInteractions(elapsedTime);
+    }
 
     // 4. Render khung hình
     this.renderer.render(this.scene, this.camera);

@@ -104,11 +104,11 @@ export class CameraControls {
     window.addEventListener('keydown', this.onKeyDown.bind(this));
     window.addEventListener('keyup', this.onKeyUp.bind(this));
 
-    // 3. Di động: Cảm ứng chạm vuốt
-    this.domElement.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: false });
-    window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: false });
-    window.addEventListener('touchend', this.onTouchEnd.bind(this));
-    window.addEventListener('touchcancel', this.onTouchEnd.bind(this));
+    // 3. Di động: Cảm ứng chạm vuốt mượt mà (passive: true để tối ưu 60-90-120Hz)
+    this.domElement.addEventListener('touchstart', this.onTouchStart.bind(this), { passive: true });
+    window.addEventListener('touchmove', this.onTouchMove.bind(this), { passive: true });
+    window.addEventListener('touchend', this.onTouchEnd.bind(this), { passive: true });
+    window.addEventListener('touchcancel', this.onTouchEnd.bind(this), { passive: true });
 
     // 4. Cảm biến con quay
     this.onDeviceOrientation = this.handleOrientation.bind(this);

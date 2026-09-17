@@ -21,13 +21,13 @@ export class VinylPlayer {
     this.spinSpeed = 0;
     this.targetSpinSpeed = 0;
 
-    // Âm thanh
+    // Âm thanh: Bài hát "Cho Em - MAYDAYs" theo yêu cầu của bạn Vinh
     this.audioSfxTonearm = new Audio('/audio/tonearm.mp3');
     this.audioSfxStylus = new Audio('/audio/stylus.mp3');
     this.audioSfxMotor = new Audio('/audio/motor.mp3');
-    this.musicTrack = new Audio('/audio/romantic_music.mp3');
+    this.musicTrack = new Audio('/audio/cho_em_maydays.mp3');
     this.musicTrack.loop = true;
-    this.musicTrack.volume = 0.7;
+    this.musicTrack.volume = 0.75;
 
     // Hạt nốt nhạc phát sáng
     this.notesParticles = null;
