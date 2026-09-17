@@ -6,13 +6,14 @@ import * as THREE from 'three';
  * - Ảnh treo sát tường với đèn rọi riêng cho từng bức
  */
 export class PhotoGallery {
-  constructor(scene, memories, onPhotoClick) {
+  constructor(scene, memories, onPhotoClick, loadingManager = null) {
     this.scene = scene;
     this.memories = memories;
     this.onPhotoClick = onPhotoClick;
+    this.loadingManager = loadingManager;
 
     this.frames = [];
-    this.textureLoader = new THREE.TextureLoader();
+    this.textureLoader = new THREE.TextureLoader(this.loadingManager);
 
     this.createAllFrames();
   }

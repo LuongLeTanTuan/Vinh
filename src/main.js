@@ -32,6 +32,7 @@ class BirthdayApp {
     this.isIdle = false;
 
     this.initThree();
+    this.setupLoadingManager();
     this.initSceneComponents();
     this.collectInteractiveTargets();
     this.initInteractions();
@@ -61,6 +62,7 @@ class BirthdayApp {
 
     // Renderer cao cấp: Bật khử răng cưa (Antialiasing) & Độ phân giải sắc nét chuẩn Retina
     const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    this.isMobile = isMobile;
     this.renderer = new THREE.WebGLRenderer({
       antialias: true, // Bật khử răng cưa phần cứng (MSAA) để viền sắc nét, mịn màng
       powerPreference: 'high-performance'
@@ -76,7 +78,7 @@ class BirthdayApp {
 
     // Trên điện thoại: chỉ tính toán bóng đổ 1 lần duy nhất (bake), tắt auto-update để giữ cứng 60-90 FPS
     if (isMobile) {
-      this.renderer.shadowMap.autoUpdate = false;
+      this.renderer.shadowMap.autoUpdate = true; // Bật để render tính toán bóng đổ trong màn hình loading
       this.renderer.shadowMap.needsUpdate = true;
     }
 
@@ -94,6 +96,62 @@ class BirthdayApp {
     this.controls = new CameraControls(this.camera, this.renderer.domElement);
   }
 
+  setupLoadingManager() {
+    this.loadingManager = new THREE.LoadingManager();
+    this.isAssetsLoaded = false;
+    this.targetProgress = 12;
+
+    this.loadingManager.onProgress = (url, loaded, total) => {
+      const pct = Math.min(97, Math.max(15, Math.round((loaded / total) * 100)));
+      if (pct > this.targetProgress) {
+        this.targetProgress = pct;
+      }
+    };
+
+    this.loadingManager.onLoad = () => {
+      this.isAssetsLoaded = true;
+      this.targetProgress = 100;
+      this.collectInteractiveTargets();
+
+      // PRE-WARM WebGL: Biên dịch trước toàn bộ shaders & tải trước texture vào VRAM GPU
+      try {
+        if (this.renderer && this.scene && this.camera) {
+          this.renderer.compile(this.scene, this.camera);
+          if (this.isMobile) {
+            this.renderer.shadowMap.needsUpdate = true;
+          }
+          this.renderer.render(this.scene, this.camera);
+          this.renderer.render(this.scene, this.camera);
+          if (this.isMobile) {
+            this.renderer.shadowMap.autoUpdate = false;
+          }
+        }
+      } catch (e) {
+        console.warn('Pre-warm error:', e);
+      }
+    };
+
+    this.loadingManager.onError = (url) => {
+      console.warn('Lỗi nạp tài nguyên:', url);
+    };
+
+    // Timeout dự phòng bảo đảm không bao giờ bị kẹt trên mobile
+    setTimeout(() => {
+      if (!this.isAssetsLoaded) {
+        this.isAssetsLoaded = true;
+        this.targetProgress = 100;
+        this.collectInteractiveTargets();
+        try {
+          if (this.renderer && this.scene && this.camera) {
+            this.renderer.compile(this.scene, this.camera);
+            this.renderer.render(this.scene, this.camera);
+            if (this.isMobile) this.renderer.shadowMap.autoUpdate = false;
+          }
+        } catch (e) {}
+      }
+    }, 7000);
+  }
+
   initSceneComponents() {
     this.modals = new ModalManager(BIRTHDAY_CONFIG);
     this.modals.onModalOpen = () => {
@@ -105,32 +163,32 @@ class BirthdayApp {
     };
 
     // 1. Bầu trời sao trên đầu & sao băng (dùng texture thật)
-    this.sky = new SkyScene(this.scene);
+    this.sky = new SkyScene(this.scene, this.loadingManager);
 
     // 2. Phòng tiệc có mái vòm kính giếng trời ngắm sao & đèn đom đóm
-    this.room = new RoomScene(this.scene);
+    this.room = new RoomScene(this.scene, this.loadingManager);
 
     // 3. Bàn tiệc có khăn trải bàn, đĩa, dao nĩa, cánh hoa hồng, lá thư tay
     this.tableItems = new TableItems(this.scene, () => {
       this.controls.exitLock();
       this.showCursor();
       this.modals.openLetterModal();
-    });
+    }, this.loadingManager);
 
     // 4. Bánh kem sinh nhật (thổi nến + pháo hoa)
     this.cake = new BirthdayCake(this.scene, () => {
       this.modals.showCelebrationBanner();
-    });
+    }, this.loadingManager);
 
     // 5. Hộp nhạc / Máy đĩa than cổ điển (Chỉ bật tắt trực tiếp tại hộp nhạc)
-    this.vinylPlayer = new VinylPlayer(this.scene);
+    this.vinylPlayer = new VinylPlayer(this.scene, null, this.loadingManager);
 
-    // 6. Hệ thống 20 khung tranh kỷ niệm quanh phòng
+    // 6. Hệ thống 16 khung tranh kỷ niệm quanh phòng
     this.gallery = new PhotoGallery(this.scene, BIRTHDAY_CONFIG.memories, (photoIndex) => {
       this.controls.exitLock();
       this.showCursor();
       this.modals.openPhotoModal(photoIndex);
-    });
+    }, this.loadingManager);
   }
 
   /**
@@ -141,17 +199,17 @@ class BirthdayApp {
 
     if (this.gallery && this.gallery.frames) {
       this.gallery.frames.forEach(f => {
-        if (f.canvasMesh) this.interactiveTargets.push(f.canvasMesh);
+        if (f.canvasMesh && !this.interactiveTargets.includes(f.canvasMesh)) {
+          this.interactiveTargets.push(f.canvasMesh);
+        }
       });
     }
 
-    setTimeout(() => {
-      this.scene.traverse((obj) => {
-        if (obj.userData && obj.userData.interactive && !this.interactiveTargets.includes(obj)) {
-          this.interactiveTargets.push(obj);
-        }
-      });
-    }, 1500);
+    this.scene.traverse((obj) => {
+      if (obj.userData && obj.userData.interactive && !this.interactiveTargets.includes(obj)) {
+        this.interactiveTargets.push(obj);
+      }
+    });
   }
 
   initInteractions() {
@@ -316,54 +374,56 @@ class BirthdayApp {
     const percentText = document.getElementById('loading-percent');
     const statusText = document.getElementById('loading-status-text');
 
-    let currentPercent = 0;
-    const stages = [
-      { target: 25, status: "Đang mở thiệp mời & khởi tạo không gian..." },
-      { target: 55, status: "Đang bày biện bàn tiệc & thắp nến lung linh..." },
-      { target: 80, status: "Đang mở dải ngân hà & ngàn vì sao đêm..." },
-      { target: 95, status: "Đang tối ưu hóa đồ họa 3D ổn định..." },
-      { target: 100, status: "Sẵn sàng đón Kiều vào phòng tiệc... ✨" }
-    ];
+    let currentDisplay = 0;
+    this.enterTriggered = false;
 
-    let stageIndex = 0;
-    const updateInterval = setInterval(() => {
-      if (stageIndex >= stages.length) {
-        clearInterval(updateInterval);
+    const tickProgress = () => {
+      if (this.enterTriggered) return;
+
+      // Bước tiến mượt mà hướng về targetProgress thực tế từ LoadingManager
+      if (currentDisplay < this.targetProgress) {
+        const delta = this.targetProgress - currentDisplay;
+        // Tốc độ thích ứng: lướt nhanh khi còn cách xa, lướt êm dịu khi tiệm cận
+        const step = Math.max(0.5, delta * 0.14);
+        currentDisplay = Math.min(this.targetProgress, currentDisplay + step);
+      }
+
+      const displayInt = Math.min(100, Math.floor(currentDisplay));
+      if (progressBar) progressBar.style.width = `${displayInt}%`;
+      if (percentText) percentText.textContent = `${displayInt}%`;
+
+      if (statusText) {
+        if (displayInt < 25) {
+          statusText.textContent = "Đang mở thiệp mời & khởi tạo không gian...";
+        } else if (displayInt < 60) {
+          statusText.textContent = "Đang tải 16 bức ảnh kỷ niệm & dải ngân hà...";
+        } else if (displayInt < 85) {
+          statusText.textContent = "Đang bày biện bàn tiệc & thắp nến lung linh...";
+        } else if (displayInt < 100) {
+          statusText.textContent = "Đang tối ưu hóa đồ họa 3D siêu mượt mà...";
+        } else {
+          statusText.textContent = "Sẵn sàng đón Kiều vào phòng tiệc... ✨";
+        }
+      }
+
+      // Chỉ khi ĐÃ LOAD ĐỦ 100% TÀI NGUYÊN THỰC TẾ & ĐÃ BIÊN DỊCH SHADER
+      if (displayInt >= 100 && this.isAssetsLoaded && !this.enterTriggered) {
+        this.enterTriggered = true;
+        if (progressBar) progressBar.style.width = '100%';
+        if (percentText) percentText.textContent = '100%';
+        if (statusText) statusText.textContent = "Sẵn sàng đón Kiều vào phòng tiệc... ✨";
+
+        // Tạm dừng 450ms cho người dùng thưởng thức trọn vẹn thông báo trước khi vào phòng
+        setTimeout(() => {
+          this.enterExperience();
+        }, 450);
         return;
       }
 
-      const currentStage = stages[stageIndex];
-      if (currentPercent < currentStage.target) {
-        currentPercent += Math.floor(Math.random() * 4) + 2;
-        if (currentPercent > currentStage.target) currentPercent = currentStage.target;
+      requestAnimationFrame(tickProgress);
+    };
 
-        if (progressBar) progressBar.style.width = `${currentPercent}%`;
-        if (percentText) percentText.textContent = `${currentPercent}%`;
-        if (statusText) statusText.textContent = currentStage.status;
-      } else {
-        stageIndex++;
-      }
-
-      // Khi đạt 95% - biên dịch trước toàn bộ shader và render thử 2 frame để chống giật
-      if (currentPercent >= 95 && !this.sceneStabilized) {
-        this.sceneStabilized = true;
-        try {
-          if (this.renderer && this.scene && this.camera) {
-            this.renderer.compile(this.scene, this.camera);
-            this.renderer.render(this.scene, this.camera);
-          }
-        } catch (e) {}
-      }
-
-      // Khi đạt 100% - giữ 650ms cho người dùng thưởng thức trọn vẹn thiệp mời rồi tự động vào phòng
-      if (currentPercent >= 100 && !this.enterTriggered) {
-        this.enterTriggered = true;
-        clearInterval(updateInterval);
-        setTimeout(() => {
-          this.enterExperience();
-        }, 650);
-      }
-    }, 45);
+    requestAnimationFrame(tickProgress);
   }
 
   enterExperience() {

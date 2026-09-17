@@ -14,9 +14,10 @@ import { normalizeModel } from '../utils/modelHelper.js';
  * 8. Bộ đĩa sứ viền vàng, khăn ăn gấp hoa hồng, cánh hoa rải rác
  */
 export class TableItems {
-  constructor(scene, onLetterClick) {
+  constructor(scene, onLetterClick, loadingManager = null) {
     this.scene = scene;
     this.onLetterClick = onLetterClick;
+    this.loadingManager = loadingManager;
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
@@ -1023,7 +1024,7 @@ export class TableItems {
   }
 
   loadTableDecorations() {
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader(this.loadingManager);
 
     // 1. Ghế nhung sang trọng đối diện bàn tiệc
     loader.load('/models/chair.glb', (gltf) => {

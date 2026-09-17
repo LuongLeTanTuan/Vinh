@@ -7,9 +7,10 @@ import { normalizeModel } from '../utils/modelHelper.js';
  * BirthdayCake: Bánh kem sinh nhật lung linh đặt ngay ngắn trên khăn trải bàn tiệc
  */
 export class BirthdayCake {
-  constructor(scene, onCandleBlown) {
+  constructor(scene, onCandleBlown, loadingManager = null) {
     this.scene = scene;
     this.onCandleBlown = onCandleBlown;
+    this.loadingManager = loadingManager;
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
@@ -39,7 +40,7 @@ export class BirthdayCake {
   }
 
   loadModels() {
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader(this.loadingManager);
 
     loader.load(
       '/models/cake.glb',

@@ -8,9 +8,10 @@ import gsap from 'gsap';
  * - Hoạt ảnh hạ cần kim, đĩa than xoay và phát nhạc piano lofi ngọt ngào
  */
 export class VinylPlayer {
-  constructor(scene, onStateChange) {
+  constructor(scene, onStateChange, loadingManager = null) {
     this.scene = scene;
     this.onStateChange = onStateChange;
+    this.loadingManager = loadingManager;
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
@@ -28,6 +29,22 @@ export class VinylPlayer {
     this.musicTrack = new Audio('/audio/cho_em_maydays.mp3');
     this.musicTrack.loop = true;
     this.musicTrack.volume = 0.75;
+    this.musicTrack.preload = 'auto';
+
+    if (this.loadingManager) {
+      const audioUrl = '/audio/cho_em_maydays.mp3';
+      this.loadingManager.itemStart(audioUrl);
+      let audioDone = false;
+      const onAudioReady = () => {
+        if (!audioDone) {
+          audioDone = true;
+          try { this.loadingManager.itemEnd(audioUrl); } catch (e) {}
+        }
+      };
+      this.musicTrack.addEventListener('canplaythrough', onAudioReady, { once: true });
+      this.musicTrack.addEventListener('error', onAudioReady, { once: true });
+      setTimeout(onAudioReady, 2000);
+    }
 
     // Hạt nốt nhạc phát sáng
     this.notesParticles = null;

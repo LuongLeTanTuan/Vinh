@@ -8,8 +8,9 @@ import * as THREE from 'three';
  * - Hiệu ứng nebula tinh vân mờ ảo
  */
 export class SkyScene {
-  constructor(scene) {
+  constructor(scene, loadingManager = null) {
     this.scene = scene;
+    this.loadingManager = loadingManager;
     this.stars = null;
     this.sparkleStars = null;
     this.moon = null;
@@ -34,7 +35,7 @@ export class SkyScene {
     domeGeo.scale(-1, 1, 1);
 
     // Tải texture bầu trời sao Milky Way độ nét cao
-    const textureLoader = new THREE.TextureLoader();
+    const textureLoader = new THREE.TextureLoader(this.loadingManager);
     const starfieldTex = textureLoader.load('/textures/milky_way_window.jpg');
     starfieldTex.colorSpace = THREE.SRGBColorSpace;
     starfieldTex.wrapS = THREE.RepeatWrapping;

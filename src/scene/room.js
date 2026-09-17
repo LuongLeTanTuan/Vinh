@@ -10,8 +10,9 @@ import * as THREE from 'three';
  * - Ánh sáng nến vàng lung linh + ánh trăng dịu mát từ giếng trời
  */
 export class RoomScene {
-  constructor(scene) {
+  constructor(scene, loadingManager = null) {
     this.scene = scene;
+    this.loadingManager = loadingManager;
     this.roomWidth = 6.0;
     this.roomLength = 6.0;
     this.roomHeight = 3.6;
@@ -376,7 +377,7 @@ export class RoomScene {
     });
 
     // Nạp ảnh dải ngân hà ESO Milky Way tuyệt đẹp bên ngoài cửa sổ
-    const textureLoader = new THREE.TextureLoader();
+    const textureLoader = new THREE.TextureLoader(this.loadingManager);
     const milkyWayTex = textureLoader.load('/textures/milky_way_window.jpg');
     milkyWayTex.colorSpace = THREE.SRGBColorSpace;
     milkyWayTex.wrapS = THREE.ClampToEdgeWrapping;
