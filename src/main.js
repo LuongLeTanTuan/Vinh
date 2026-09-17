@@ -59,15 +59,15 @@ class BirthdayApp {
       200
     );
 
-    // Renderer tương thích tối đa cho cả PC & Điện thoại (Cố định 60-90Hz mượt mà)
+    // Renderer cao cấp: Bật khử răng cưa (Antialiasing) & Độ phân giải sắc nét chuẩn Retina
     const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     this.renderer = new THREE.WebGLRenderer({
-      antialias: !isMobile, // Tắt antialias trên mobile để đạt 60-90 FPS tối đa
+      antialias: true, // Bật khử răng cưa phần cứng (MSAA) để viền sắc nét, mịn màng
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    // Giới hạn pixel ratio trên điện thoại (1.05) tránh tràn bộ nhớ GPU, PC giữ 1.75
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.05 : 1.75));
+    // Độ phân giải sắc nét chuẩn Retina trên iPhone/Android (1.65), khử sạch hiện tượng răng cưa
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.65 : 1.75));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
