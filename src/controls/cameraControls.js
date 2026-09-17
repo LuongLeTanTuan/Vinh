@@ -241,10 +241,14 @@ export class CameraControls {
     this.touchLastX = currentX;
     this.touchLastY = currentY;
 
-    // Vuốt liên tục xoay 360 độ mượt mà
-    this.targetLon += deltaX * 0.35;
-    this.targetLat += deltaY * 0.3;
-    this.targetLat = Math.max(-55, Math.min(65, this.targetLat));
+    // Vuốt liên tục xoay 360 độ mượt mà trên điện thoại
+    if (Number.isFinite(deltaX) && Math.abs(deltaX) < 150) {
+      this.targetLon += deltaX * 0.28;
+    }
+    if (Number.isFinite(deltaY) && Math.abs(deltaY) < 150) {
+      this.targetLat -= deltaY * 0.22;
+      this.targetLat = Math.max(-55, Math.min(65, this.targetLat));
+    }
   }
 
   onTouchEnd() {
@@ -268,12 +272,10 @@ export class CameraControls {
           window.addEventListener('deviceorientation', this.onDeviceOrientation, false);
           this.gyroEnabled = true;
           return true;
-        } else {
-          alert('Cần cấp quyền cảm biến để xoay căn phòng theo điện thoại!');
-          return false;
         }
+        return false;
       } catch (err) {
-        console.warn('Lỗi xin quyền Gyro:', err);
+        console.warn('Gyro permission error:', err);
         return false;
       }
     } else if ('ondeviceorientation' in window) {
@@ -287,18 +289,27 @@ export class CameraControls {
   disableGyro() {
     window.removeEventListener('deviceorientation', this.onDeviceOrientation, false);
     this.gyroEnabled = false;
+    this.gyroOffsetLat = 0;
+    this.gyroOffsetLon = 0;
   }
 
   handleOrientation(event) {
     if (!this.gyroEnabled) return;
-    const { beta, gamma } = event;
-    if (beta === null || gamma === null) return;
+    const beta = event.beta;
+    const gamma = event.gamma;
+    
+    // Kiểm tra chặt chẽ kiểu dữ liệu để tuyệt đối không bị NaN làm hỏng camera
+    if (typeof beta !== 'number' || typeof gamma !== 'number' || !Number.isFinite(beta) || !Number.isFinite(gamma)) {
+      return;
+    }
 
     const pitchDelta = (beta - 55) * 0.6;
     const rollDelta = gamma * 0.8;
 
-    this.gyroOffsetLat = Math.max(-45, Math.min(50, pitchDelta));
-    this.gyroOffsetLon = rollDelta;
+    if (Number.isFinite(pitchDelta) && Number.isFinite(rollDelta)) {
+      this.gyroOffsetLat = Math.max(-45, Math.min(50, pitchDelta));
+      this.gyroOffsetLon = rollDelta;
+    }
   }
 
   update(delta = 0.016) {
@@ -314,27 +325,32 @@ export class CameraControls {
     // Giới hạn góc nhìn lên xuống (-55° đến +65°)
     this.targetLat = Math.max(-55, Math.min(65, this.targetLat));
 
+    // Bảo vệ triệt để chống NaN trên di động
+    if (!Number.isFinite(this.targetLon)) this.targetLon = 0;
+    if (!Number.isFinite(this.targetLat)) this.targetLat = -12;
+    if (!Number.isFinite(this.lon)) this.lon = 0;
+    if (!Number.isFinite(this.lat)) this.lat = -12;
+
     // 2. Làm mượt chuyển động xoay camera (lerp)
     this.lon += (this.targetLon - this.lon) * this.lerpSpeed;
     this.lat += (this.targetLat - this.lat) * this.lerpSpeed;
 
-    const finalLon = this.lon + (this.gyroEnabled ? this.gyroOffsetLon : 0);
-    const finalLat = Math.max(-55, Math.min(65, this.lat + (this.gyroEnabled ? this.gyroOffsetLat : 0)));
+    const gOffsetLon = (this.gyroEnabled && Number.isFinite(this.gyroOffsetLon)) ? this.gyroOffsetLon : 0;
+    const gOffsetLat = (this.gyroEnabled && Number.isFinite(this.gyroOffsetLat)) ? this.gyroOffsetLat : 0;
+
+    const finalLon = this.lon + gOffsetLon;
+    const finalLat = Math.max(-55, Math.min(65, this.lat + gOffsetLat));
 
     const phi = THREE.MathUtils.degToRad(90 - finalLat);
     const theta = THREE.MathUtils.degToRad(finalLon);
 
-    // Tọa độ chuẩn 360 độ:
-    // theta = 0 -> nhìn thẳng vào bàn tiệc (negative Z)
-    // theta = 90 -> nhìn sang PHẢI (positive X)
-    // theta = 180 -> nhìn ra sau lưng (positive Z)
-    // theta = 270 (-90) -> nhìn sang TRÁI (negative X)
-    // theta = 360 -> nhìn thẳng trở lại (chu kỳ 360° vô tận)
     const targetPosition = new THREE.Vector3();
     targetPosition.x = this.sittingPosition.x + 500 * Math.sin(phi) * Math.sin(theta);
     targetPosition.y = this.sittingPosition.y + 500 * Math.cos(phi);
     targetPosition.z = this.sittingPosition.z - 500 * Math.sin(phi) * Math.cos(theta);
 
-    this.camera.lookAt(targetPosition);
+    if (Number.isFinite(targetPosition.x) && Number.isFinite(targetPosition.y) && Number.isFinite(targetPosition.z)) {
+      this.camera.lookAt(targetPosition);
+    }
   }
 }

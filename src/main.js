@@ -59,20 +59,29 @@ class BirthdayApp {
       200
     );
 
-    // Renderer hiệu năng cao
+    // Renderer tương thích tối đa cho cả PC & Điện thoại
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance',
-      precision: 'highp'
+      powerPreference: 'high-performance'
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    // Giới hạn pixelRatio ở 1.75 để đảm bảo 60-120fps
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 1.75));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Ngăn chặn lỗi mất ngữ cảnh WebGL trên thiết bị di động
+    this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost, waiting for restoration...');
+    }, false);
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+      console.log('WebGL context restored');
+    }, false);
+
     this.container.appendChild(this.renderer.domElement);
 
     this.controls = new CameraControls(this.camera, this.renderer.domElement);
@@ -173,18 +182,18 @@ class BirthdayApp {
       return null;
     };
 
-    // Xử lý nhấp chuột: Hỗ trợ nhấp chuột trực tiếp và nhấp bằng tâm ngắm FPS
-    this.renderer.domElement.addEventListener('click', (e) => {
+    // Xử lý nhấp chuột & chạm cảm ứng trên điện thoại
+    const handleActionAt = (clientX, clientY) => {
       if (this.modals.isAnyModalOpen()) return;
 
       const mousePointer = new THREE.Vector2(
-        (e.clientX / window.innerWidth) * 2 - 1,
-        -(e.clientY / window.innerHeight) * 2 + 1
+        (clientX / window.innerWidth) * 2 - 1,
+        -(clientY / window.innerHeight) * 2 + 1
       );
 
-      // Thử bắn tia từ tọa độ chuột trước
+      // Thử bắn tia từ tọa độ chạm trước
       let uData = getHitInteractive(mousePointer);
-      // Nếu không trúng (hoặc chuột đang bị khóa), thử bắn tia từ tâm ngắm (0, 0)
+      // Nếu không trúng (hoặc đang dùng tâm ngắm), thử bắn tia từ tâm màn hình (0, 0)
       if (!uData) {
         uData = getHitInteractive(this.centerPointer);
       }
@@ -206,7 +215,34 @@ class BirthdayApp {
           this.modals.openLetterModal();
         }
       }
+    };
+
+    this.renderer.domElement.addEventListener('click', (e) => {
+      handleActionAt(e.clientX, e.clientY);
     });
+
+    // Hỗ trợ chạm nhanh (tap) trên điện thoại không bị delay
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    this.renderer.domElement.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+      }
+    }, { passive: true });
+
+    this.renderer.domElement.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length === 1) {
+        const dist = Math.hypot(e.changedTouches[0].clientX - touchStartX, e.changedTouches[0].clientY - touchStartY);
+        const duration = Date.now() - touchStartTime;
+        // Nếu nhấp nhẹ dưới 250ms và không vuốt di chuyển xa -> xem như cú chạm tương tác (tap)
+        if (dist < 15 && duration < 300) {
+          handleActionAt(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }
+      }
+    }, { passive: true });
   }
 
   /**
@@ -324,7 +360,7 @@ class BirthdayApp {
     if (!this.loadingScreen || this.loadingScreen.classList.contains('hidden')) return;
     this.loadingScreen.classList.add('hidden');
 
-    // Ẩn con trỏ chuột khi bước vào trải nghiệm
+    // Ẩn con trỏ chuột khi bước vào trải nghiệm (nếu là PC)
     this.hideCursor();
 
     // Thử yêu cầu khóa chuột nếu trình duyệt hỗ trợ
@@ -332,9 +368,12 @@ class BirthdayApp {
       this.controls.requestLock();
     } catch (e) {}
 
-    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      this.controls.enableGyro().catch(() => {});
-    }
+    // Ẩn hoàn toàn loading screen khỏi DOM sau khi mờ dần để không che cảm ứng
+    setTimeout(() => {
+      if (this.loadingScreen) {
+        this.loadingScreen.style.display = 'none';
+      }
+    }, 1100);
   }
 
   /**
